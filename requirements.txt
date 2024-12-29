@@ -1,5 +1,5 @@
-Flask==2.3.2         # Flask framework
-flask-cors==3.0.10   # Flask-CORS for handling Cross-Origin Resource Sharing
-flask-bcrypt==1.0.1  # Flask-Bcrypt for password hashing
-psycopg2-binary==2.9.7  # psycopg2-binary for PostgreSQL database interaction
-python-dotenv==1.0.0 # python-dotenv for loading environment variables from .env file
+Flask==2.3.2
+flask-cors==3.0.10
+flask-bcrypt==1.0.1
+psycopg2-binary==2.9.7
+python-dotenv==1.0.0
