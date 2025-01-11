@@ -5,6 +5,7 @@ from flask_bcrypt import Bcrypt
 import psycopg2
 from dotenv import load_dotenv
 import os
+import random
 
 load_dotenv()
 
@@ -34,7 +35,6 @@ def hello():
 
         cursor.close()
         conn.close()
-
         return jsonify("server live")
     except Exception as e:
         return f"Error: {e}"
@@ -308,6 +308,80 @@ def get_reviews():
         return jsonify({"reviews": reviews}), 200
     except Exception as e:
         return jsonify({"message": f"Error: {str(e)}"}), 500
+
+@app.route('/getquestions', methods=['POST'])
+def get_questions():
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    data = request.json
+    no_of_questions = data.get('no_of_questions')  # Default to 10 questions if not provided
+    level_id = data.get('level_id')
+    # Query to get all words and meanings
+    table_name = f"flashcardslevel_{level_id}"
+    query = f"SELECT word, meaning FROM {table_name}"
+    cursor.execute(query)
+    all_data = cursor.fetchall()
+
+    if len(all_data) < no_of_questions:
+        return {"error": "Not enough data in the table to generate questions."}, 400
+
+    # Select `no_of_questions` unique words for questions
+    question_data = random.sample(all_data, no_of_questions)
+
+    questions = []
+    for entry in question_data:
+        correct_meaning = entry['meaning']
+        word = entry['word']
+
+        # Generate 3 incorrect meanings by sampling from the rest of the meanings
+        remaining_meanings = [item['meaning'] for item in all_data if item['meaning'] != correct_meaning]
+        incorrect_meanings = random.sample(remaining_meanings, 3)
+
+        # Combine the correct meaning with the incorrect ones and shuffle
+        choices = incorrect_meanings + [correct_meaning]
+        random.shuffle(choices)
+
+        # Add question with word and shuffled choices
+        questions.append({
+            "word": word,
+            "choices": choices,
+            "answer": correct_meaning  # To validate the correct answer if needed
+        })
+
+    return {"questions": questions}
+
+@app.route('/putTestScores', methods=['POST'])
+def getuserTestScore():
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    try:
+        data = request.json
+        userid = data.get('userid')
+        level_id = data.get('level_id')  # Assuming level_id corresponds to the "level" column
+        score = data.get('score')
+        print(userid, level_id, score)
+        # SQL query to insert a record into the testScores table
+        insert_query = """
+            INSERT INTO testScores (userId, score, levelid)
+            VALUES (%s, %s, %s)
+            RETURNING *;
+            """
+        cursor.execute(insert_query, (userid, score, level_id))
+        conn.commit()
+
+        # Fetch the inserted row
+        inserted_row = cursor.fetchone()
+
+        return jsonify({"status": "success", "data": inserted_row}), 201
+
+    except Exception as e:
+        conn.rollback()  # Rollback in case of error
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
 
 
 if __name__ == '__main__':
